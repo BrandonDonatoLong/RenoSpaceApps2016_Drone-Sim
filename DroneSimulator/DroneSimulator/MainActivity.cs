@@ -57,20 +57,29 @@ namespace DroneSimulator
             _testCoordinates.Adapter = adapter;
 
             button.Click += delegate {
+                //resume collecting location data
+                if (_locationManager != null)
+                    _locationManager.RequestLocationUpdates(_locationProvider, 0, 0, this);
+
                 _locationText.Text = "button pressed, waiting for location";
                 if (_jsonPackage == null)
                 {
                     _jsonPackage = new LocationData();
                     _jsonPackage.id = _droneID;
                 }
-                InitializeLocationManager();
             };
-            
+
+            InitializeLocationManager();
+
 
         }
 
         private void _testCoordinates_ItemSelected(object sender, AdapterView.ItemSelectedEventArgs e)
         {
+            //pause test coordinates
+            if (_locationManager != null)
+                _locationManager.RemoveUpdates(this);
+
             Spinner spinner = (Spinner)sender;
 
             string toast = string.Format("the coordinates are {0}", spinner.GetItemAtPosition(e.Position));
@@ -124,10 +133,7 @@ namespace DroneSimulator
                         _jsonPackage.lat = _currentLocation.Latitude;
                         _jsonPackage.lng = _currentLocation.Longitude;
                     }
-                    _locationText.Text = JsonConvert.SerializeObject(_jsonPackage);
-                    string sContentType = "application/json";
-                    var temp = new StringContent(_jsonPackage.ToString(), Encoding.UTF8, sContentType);
-                    _locationText.Text = temp.ToString();
+                    _locationText.Text = string.Format("{0:f4},{1:f4}", roundedLat,roundedLong);
 
                     postToServer();
                 }
@@ -156,7 +162,7 @@ namespace DroneSimulator
 
         double roundDouble(double input)
         {
-            string temp = string.Format("{0:f5}",input);
+            string temp = string.Format("{0:f4}",input);
             double output = 0;
             double.TryParse(temp, out output);
             return output;
