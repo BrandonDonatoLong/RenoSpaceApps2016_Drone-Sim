@@ -11,6 +11,7 @@ using Newtonsoft.Json.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
+using System;
 
 namespace DroneSimulator
 {
@@ -25,10 +26,16 @@ namespace DroneSimulator
         TextView _locationText;
         string _droneID = "123";
         LocationData _jsonPackage;
+        Spinner _testCoordinates;
+
+        HttpClient client = new HttpClient();
         protected override void OnCreate(Bundle bundle)
         {
             base.OnCreate(bundle);
-            
+
+
+            client.MaxResponseContentBufferSize = 256000;
+
             _jsonPackage = new LocationData();
             _jsonPackage.id = _droneID;
             
@@ -39,6 +46,16 @@ namespace DroneSimulator
             // and attach an event to it
             Button button = FindViewById<Button>(Resource.Id.button1);
             _locationText = FindViewById<TextView>(Resource.Id.coordinates);
+            _testCoordinates = FindViewById<Spinner>(Resource.Id.CoordinateDrop);
+
+            _testCoordinates.ItemSelected += _testCoordinates_ItemSelected;
+
+            var adapter = ArrayAdapter.CreateFromResource(
+                this, Resource.Array.coodrinate_array, Android.Resource.Layout.SimpleSpinnerItem);
+
+            adapter.SetDropDownViewResource(Android.Resource.Layout.SimpleSpinnerDropDownItem);
+            _testCoordinates.Adapter = adapter;
+
             button.Click += delegate {
                 _locationText.Text = "button pressed, waiting for location";
                 if (_jsonPackage == null)
@@ -48,9 +65,36 @@ namespace DroneSimulator
                 }
                 InitializeLocationManager();
             };
+            
 
-            InitializeLocationManager();
+        }
 
+        private void _testCoordinates_ItemSelected(object sender, AdapterView.ItemSelectedEventArgs e)
+        {
+            Spinner spinner = (Spinner)sender;
+
+            string toast = string.Format("the coordinates are {0}", spinner.GetItemAtPosition(e.Position));
+            if (e.Position != 0)
+            {
+                Location dummyLocation = new Location("test");
+                string[] split_coords = spinner.GetItemAtPosition(e.Position).ToString().Split(',');
+                double lat = 0, lng = 0;
+                if (!double.TryParse(split_coords[0], out lat) || !double.TryParse(split_coords[1], out lng))
+                {
+                    Toast.MakeText(this, "ERROR, Cannot parse lat & long",ToastLength.Short).Show();
+                    return;
+                }
+                else
+                {
+                    dummyLocation.Latitude = lat;
+                    dummyLocation.Longitude = lng;
+                    OnLocationChanged(dummyLocation);
+                    //force an update from the server
+                    firstTimeThrough = true;
+                    Toast.MakeText(this, toast, ToastLength.Long).Show();
+                }
+                Toast.MakeText(this, toast, ToastLength.Long).Show();
+            }
         }
 
         public async void OnLocationChanged(Location location)
@@ -90,48 +134,29 @@ namespace DroneSimulator
             }
         }
 
-        void postToServer()
+        async void postToServer()
         {
-            string sUrl = string.Format("http://localhost:8080/drone?id={0}&lat={1}&lng={2}",_jsonPackage.id, _jsonPackage.lat, _jsonPackage.lng);
+            var uri = new Uri (string.Format("http://10.0.1.6:8080/drone?id={0}&lat={1}&lng={2}",_jsonPackage.id, _jsonPackage.lat, _jsonPackage.lng));
             string sContentType = "application/json"; // or application/xml
-            
-
-            HttpClient client = new HttpClient();
-            client.MaxResponseContentBufferSize = 256000;
-            var oTaskPostAsync = oHttpClient.PostAsync(sUrl, new StringContent(_jsonPackage.ToString(), Encoding.UTF8, sContentType));
-            oTaskPostAsync.ContinueWith((oHttpResponseMessage) =>
-            {
-                _locationText.Text = "location sent";
-            });
-        }
-
-        public async Task SaveTodoItemAsync(TodoItem item, bool isNewItem = false)
-        {
-            // RestUrl = http://developer.xamarin.com:8081/api/todoitems{0}
-            var uri = new Uri(string.Format(Constants.RestUrl, item.ID));
-
-  ...
-  var json = JsonConvert.SerializeObject(item);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
-
+            var json = JsonConvert.SerializeObject(_jsonPackage);
+            var content = new StringContent(json, Encoding.UTF8, sContentType);
             HttpResponseMessage response = null;
-            if (isNewItem)
-            {
-                response = await client.PostAsync(uri, content);
-            }
-  ...
+            
+            response = await client.PostAsync(uri, content);
 
-  if (response.IsSuccessStatusCode)
+            if (response.IsSuccessStatusCode)
             {
-                Debug.WriteLine(@"             TodoItem successfully saved.");
-
+                Toast.MakeText(this, "post successful", ToastLength.Short).Show();
             }
-  ...
-}
+            else
+            {
+                Toast.MakeText(this, string.Format("ERROR, something went wrong {0}",response.StatusCode), ToastLength.Short).Show();
+            }
+        }
 
         double roundDouble(double input)
         {
-            string temp = string.Format("{0:f4}",input);
+            string temp = string.Format("{0:f5}",input);
             double output = 0;
             double.TryParse(temp, out output);
             return output;
