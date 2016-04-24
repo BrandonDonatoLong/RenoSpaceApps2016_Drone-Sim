@@ -3,7 +3,9 @@
   <string name="coordinate_prompt">Choose a test coordinate</string>
   <string-array name="coodrinate_array">
     <item>Choose a test coordinate</item>
-    <item>39.5395321,-119.8178675</item>
+    <item>39.5395,-119.8178</item>
+    <item>33.8121,-117.9190</item>
+    <item>38.5071,-112.2757</item>
   </string-array>
     <string name="ApplicationName">DroneSimulator</string>
 </resources>
